@@ -208,6 +208,7 @@ def _section_monthly_expense_trend(transactions: list):
     st.plotly_chart(fig, use_container_width=True)
 
 
+
 def _section_income_vs_expense(transactions: list):
     st.markdown(
         f"<h3 style='color:{LAV_200}; margin-bottom:0.4rem;'>💹 Income vs Expense by Month</h3>",
@@ -219,38 +220,67 @@ def _section_income_vs_expense(transactions: list):
         st.info("No data available.", icon="ℹ️")
         return
 
-    xlabels  = [_fmt_month(r["month"]) for r in ive]
-    incomes  = [r["income"]  for r in ive]
+    xlabels = [_fmt_month(r["month"]) for r in ive]
+    incomes = [r["income"] for r in ive]
     expenses = [r["expense"] for r in ive]
-    nets     = [r["net"]     for r in ive]
+    nets = [r["net"] for r in ive]
 
     fig = go.Figure()
+
     fig.add_trace(go.Bar(
-        name="Income", x=xlabels, y=incomes,
+        name="Income",
+        x=xlabels,
+        y=incomes,
         marker_color=INCOME_COLOR,
         hovertemplate="Income: ₹%{y:,.2f}<extra></extra>",
     ))
+
     fig.add_trace(go.Bar(
-        name="Expenses", x=xlabels, y=expenses,
+        name="Expenses",
+        x=xlabels,
+        y=expenses,
         marker_color=EXPENSE_COLOR,
         hovertemplate="Expenses: ₹%{y:,.2f}<extra></extra>",
     ))
+
     fig.add_trace(go.Scatter(
-        name="Net", x=xlabels, y=nets,
+        name="Net",
+        x=xlabels,
+        y=nets,
         mode="lines+markers",
         line=dict(color=LAV_300, width=2, dash="dot"),
         marker=dict(size=7, color=LAV_300),
         hovertemplate="Net: ₹%{y:,.2f}<extra></extra>",
         yaxis="y",
     ))
+
     fig.update_layout(**_plotly_layout(
         "Monthly Income vs Expenses",
         barmode="group",
-        xaxis=dict(gridcolor=BORDER),
-        yaxis=dict(gridcolor=BORDER, tickprefix="₹"),
-        legend=dict(orientation="h", y=1.1),
+        height=440,
+        margin=dict(l=20, r=20, t=100, b=75),
+        xaxis=dict(
+            gridcolor=BORDER,
+            tickangle=-35,
+            automargin=True,
+        ),
+        yaxis=dict(
+            gridcolor=BORDER,
+            tickprefix="₹",
+            automargin=True,
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            title_text="",
+        ),
     ))
+
     st.plotly_chart(fig, use_container_width=True)
+
 
 
 def _section_alerts(transactions: list, abs_thresh: float, rel_mult: float):

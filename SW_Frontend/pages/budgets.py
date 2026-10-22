@@ -94,13 +94,14 @@ def _status_card(name: str, block: dict, icon: str = "💰"):
             f"Exceeded by {_fmt(block['exceeded_by'])}</div>"
         )
 
+    
     daily_row = ""
     if block["daily_allowance"] > 0:
         daily_row = (
-            f"<div style='color:{TEXT_SECONDARY}; font-size:0.8rem; margin-top:0.3rem;'>"
-            f"Daily allowance: <strong style='color:{LAV_300};'>{_fmt(block['daily_allowance'])}</strong>"
-            f"</div>"
+            f"Daily allowance: {_fmt(block['daily_allowance'])}"
         )
+
+
 
     st.markdown(
         f"""
@@ -129,11 +130,16 @@ def _status_card(name: str, block: dict, icon: str = "💰"):
                 {pct:.1f}% used
             </div>
             {exceeded_row}
-            {daily_row}
         </div>
         """,
         unsafe_allow_html=True,
     )
+
+    if block["daily_allowance"] > 0:
+        st.caption(
+            f"Daily allowance: {_fmt(block['daily_allowance'])}"
+        )
+
 
 
 # ---------------------------------------------------------------------------
