@@ -23,6 +23,20 @@ st.set_page_config(
 )
 inject_css()
 
+# ── Disable Streamlit's automatic multipage navigation ────────────────────
+# Declaring pages explicitly with st.navigation() turns off auto-discovery of
+# the pages/ folder (whose files are modules, not standalone pages). The
+# navigation widget itself is hidden because the custom sidebar below handles
+# navigation; the single no-op page just lets Streamlit finish its page run.
+def _router_page() -> None:
+    pass
+
+
+_nav = st.navigation(
+    [st.Page(_router_page, title="SpendWise", default=True)],
+    position="hidden",
+)
+
 # ── Sidebar ───────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown(
