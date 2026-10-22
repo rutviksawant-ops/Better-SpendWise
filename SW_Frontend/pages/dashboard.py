@@ -241,47 +241,87 @@ def _category_chart(transactions: list, start_date, end_date):
 # ---------------------------------------------------------------------------
 # Monthly income vs expense trend
 # ---------------------------------------------------------------------------
+
 def _monthly_trend_chart(transactions: list):
     ive = ae.income_vs_expense_monthly(transactions)
+
     if len(ive) < 1:
         st.info("Not enough dated data for a monthly trend chart.", icon="ℹ️")
         return
 
-    months  = [row["month"] for row in ive]
-    incomes  = [row["income"]  for row in ive]
+    months = [row["month"] for row in ive]
+    incomes = [row["income"] for row in ive]
     expenses = [row["expense"] for row in ive]
 
-    # Prettier month labels: "2026-10" → "Oct 26"
+    # Convert "2026-10" to "Oct 26"
     def fmt_month(m: str) -> str:
         try:
             y, mo = m.split("-")
             return f"{month_abbr[int(mo)]} {y[2:]}"
-        except Exception:
+        except (ValueError, IndexError):
             return m
 
     xlabels = [fmt_month(m) for m in months]
 
     fig = go.Figure()
+
     fig.add_trace(go.Bar(
         name="Income",
-        x=xlabels, y=incomes,
+        x=xlabels,
+        y=incomes,
         marker_color=INCOME_COLOR,
+        cliponaxis=False,
         hovertemplate="Income<br>₹%{y:,.2f}<extra></extra>",
     ))
+
     fig.add_trace(go.Bar(
         name="Expenses",
-        x=xlabels, y=expenses,
+        x=xlabels,
+        y=expenses,
         marker_color=EXPENSE_COLOR,
+        cliponaxis=False,
         hovertemplate="Expenses<br>₹%{y:,.2f}<extra></extra>",
     ))
+
     fig.update_layout(**_plotly_layout(
         "Monthly Income vs Expenses",
         barmode="group",
-        xaxis=dict(gridcolor=BORDER),
-        yaxis=dict(gridcolor=BORDER, tickprefix="₹"),
-        legend=dict(orientation="h", y=1.1),
+        bargap=0.35,
+        bargroupgap=0.12,
+        height=400,
+        margin=dict(l=20, r=20, t=85, b=65),
+        xaxis=dict(
+            gridcolor=BORDER,
+            type="category",
+            tickangle=-35,
+            tickfont=dict(size=11),
+            automargin=True,
+            title=None,
+        ),
+        yaxis=dict(
+            gridcolor=BORDER,
+            tickprefix="₹",
+            tickformat="~s",
+            separatethousands=True,
+            automargin=True,
+            title=None,
+        ),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5,
+            font=dict(size=12),
+        ),
     ))
-    st.plotly_chart(fig, use_container_width=True)
+
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={"displayModeBar": False},
+    )
+
 
 
 # ---------------------------------------------------------------------------
