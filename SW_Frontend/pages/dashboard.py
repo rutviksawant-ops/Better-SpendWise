@@ -5,7 +5,7 @@ import html
 import os
 import sys
 from calendar import month_abbr
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 _FRONTEND_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _BACKEND_DIR = os.path.abspath(os.path.join(_FRONTEND_DIR, "..", "SW_Backend"))
@@ -526,6 +526,37 @@ def _fmt_month(month: str) -> str:
         return month
 
 
+def _norm_date(value: object) -> str:
+    """Normalize date strings/objects to YYYY-MM-DD so range comparisons never drop valid rows."""
+    if isinstance(value, datetime):
+        return value.date().strftime(DATE_FMT)
+    if isinstance(value, date):
+        return value.strftime(DATE_FMT)
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    if len(raw) >= 10 and raw[4] == "-" and raw[7] == "-":
+        return raw[:10]
+    for fmt in ("%Y-%m-%d", "%d-%m-%Y", "%d/%m/%Y", "%Y/%m/%d", "%m/%d/%Y"):
+        try:
+            return datetime.strptime(raw, fmt).strftime(DATE_FMT)
+        except ValueError:
+            continue
+    return raw
+
+
+def _in_date_range(tx: dict, start_date: str | None, end_date: str | None) -> bool:
+    """Check whether a transaction falls within [start_date, end_date] inclusive."""
+    tx_date = _norm_date(tx.get("date", ""))
+    if not tx_date:
+        return start_date is None and end_date is None
+    if start_date is not None and tx_date < start_date:
+        return False
+    if end_date is not None and tx_date > end_date:
+        return False
+    return True
+
+
 def _plotly_layout(title: str = "", **overrides) -> dict:
     layout = {
         "title": {
@@ -600,6 +631,9 @@ def _show_chart(fig, height: int | None = None) -> None:
 
 def _period_selector() -> tuple[str | None, str | None, str]:
     today = date.today()
+    next_month = date(today.year + (today.month // 12), (today.month % 12) + 1, 1)
+    end_of_month = next_month - timedelta(days=1)
+
     choice = st.selectbox(
         "Period",
         [
@@ -615,7 +649,7 @@ def _period_selector() -> tuple[str | None, str | None, str]:
         label_visibility="collapsed",
     )
     if choice == "This Month":
-        start, end, label = date(today.year, today.month, 1), today, today.strftime("%B %Y")
+        start, end, label = date(today.year, today.month, 1), end_of_month, today.strftime("%B %Y")
     elif choice == "Last 30 Days":
         start, end, label = today - timedelta(days=29), today, "Last 30 Days"
     elif choice == "Last 3 Months":
@@ -623,7 +657,7 @@ def _period_selector() -> tuple[str | None, str | None, str]:
     elif choice == "Last 6 Months":
         start, end, label = today - timedelta(days=180), today, "Last 6 Months"
     elif choice == "This Year":
-        start, end, label = date(today.year, 1, 1), today, str(today.year)
+        start, end, label = date(today.year, 1, 1), date(today.year, 12, 31), str(today.year)
     elif choice == "All Time":
         return None, None, "All Time"
     else:
@@ -723,13 +757,19 @@ def _at_a_glance(period_label: str, filtered: list, summary: dict) -> None:
 
 
 def _recent_transactions(transactions: list, n: int = 6) -> None:
-    recent = ae.recent_transactions(transactions, n)
+    # Reverse first so Python's stable sort in ae.recent_transactions places
+    # newly appended same-day transactions ahead of older ones on the same date.
+    normalised_reversed = [
+        {**tx, "date": _norm_date(tx.get("date", ""))}
+        for tx in reversed(transactions)
+    ]
+    recent = ae.recent_transactions(normalised_reversed, n)
     _section_heading("Recent Transactions", "↻", bg_color=ACC_BLUE, fg_color="#222A36")
     if not recent:
         st.info("No transactions in this period.", icon="ℹ️")
         return
     for tx in recent:
-        is_income = tx.get("type") == "income"
+        is_income = str(tx.get("type", "")).lower() == "income"
         badge_class = "sw-badge-income" if is_income else "sw-badge-expense"
         dot_bg = "#244638" if is_income else "#4D3039"
         dot_fg = INCOME_COLOR if is_income else EXPENSE_COLOR
@@ -971,20 +1011,24 @@ def render() -> None:
         st.caption(f"Showing data for: **{period_label}**")
 
     try:
-        all_transactions = tm.get_transactions()
+        raw_transactions = tm.get_transactions()
     except Exception as exc:
         st.error(f"Could not load transactions: {exc}", icon="❌")
+        return
+
+    all_transactions = [
+        {**tx, "date": _norm_date(tx.get("date", ""))}
+        for tx in raw_transactions
+    ]
+    if not all_transactions:
+        st.info("No transactions yet. Head to **💳 Transactions** to add some.", icon="ℹ️")
         return
 
     filtered = [
         tx
         for tx in all_transactions
-        if (start_date is None or tx.get("date", "") >= start_date)
-        and (end_date is None or tx.get("date", "") <= end_date)
+        if _in_date_range(tx, start_date, end_date)
     ]
-    if not all_transactions:
-        st.info("No transactions yet. Head to **💳 Transactions** to add some.", icon="ℹ️")
-        return
 
     summary = ae.summary(all_transactions, start_date, end_date)
     _kpi_row(summary)
